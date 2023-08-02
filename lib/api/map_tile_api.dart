@@ -1,8 +1,12 @@
 import "dart:math";
+import "package:geo_yandex_plate/models/map_tile_data.dart";
+import 'package:intl/intl.dart';
 
 class MapTileApi {
   static String _getTileUrl(int xTile, int yTile, int zoom) {
-    return "https://core-carparks-renderer-lots.maps.yandex.net/maps-rdr-carparks/tiles?l=carparks&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&v=20230802-030100&experimental_data_poi=subscript_zoom_v2_nbsp";
+    DateTime yesterday = DateTime.now().subtract(Duration(days: 1));
+    String formattedDate = DateFormat('yyyyMMdd').format(yesterday);
+    return "https://core-carparks-renderer-lots.maps.yandex.net/maps-rdr-carparks/tiles?l=carparks&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&v=$formattedDate-030100&experimental_data_poi=subscript_zoom_v2_nbsp";
   }
 
   static String _getMapUrl(int xTile, int yTile, int zoom) {
@@ -55,23 +59,5 @@ class MapTileApi {
       print("Error occurred during coordinate calculation: $e");
       return [];
     }
-  }
-}
-
-class MapTileData {
-  final int xTile;
-  final int yTile;
-  final String tileUrl;
-  final String mapUrl;
-
-  MapTileData({
-    required this.xTile,
-    required this.yTile,
-    required this.tileUrl,
-    required this.mapUrl,
-  });
-
-  factory MapTileData.empty() {
-    return MapTileData(xTile: 0, yTile: 0, tileUrl: '', mapUrl: '');
   }
 }
