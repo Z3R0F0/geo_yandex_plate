@@ -2,15 +2,24 @@ import "dart:math";
 import "package:geo_yandex_plate/models/map_tile_data.dart";
 import 'package:intl/intl.dart';
 
-class MapTileApi {
-  static String _getTileUrl(int xTile, int yTile, int zoom) {
+class FormattedDate {
+  static String getYesterdayDate() {
     DateTime yesterday = DateTime.now().subtract(Duration(days: 1));
     String formattedDate = DateFormat('yyyyMMdd').format(yesterday);
+    return formattedDate;
+  }
+}
+
+class MapTileApi extends FormattedDate {
+  //TODO date handling, need research
+  static String _getTileUrl(int xTile, int yTile, int zoom) {
+    String formattedDate = FormattedDate.getYesterdayDate();
     return "https://core-carparks-renderer-lots.maps.yandex.net/maps-rdr-carparks/tiles?l=carparks&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&v=$formattedDate-030100&experimental_data_poi=subscript_zoom_v2_nbsp";
   }
 
   static String _getMapUrl(int xTile, int yTile, int zoom) {
-    return "https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=23.08.01-0-b230722061630&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&experimental_data_poi=subscript_zoom_v2_nbsp&ads=enabled";
+    String formattedDate = FormattedDate.getYesterdayDate();
+    return "https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=$formattedDate-b230722061630&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&experimental_data_poi=subscript_zoom_v2_nbsp&ads=enabled";
   }
 
   static Future<MapTileData> getTileData(
