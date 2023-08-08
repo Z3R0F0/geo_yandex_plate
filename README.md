@@ -1,6 +1,6 @@
 # Geoposition App
 
-The Geoposition App is a Flutter-based wev application that allows users to input latitude and longitude coordinates along with a zoom level to calculate and display map tile images from the Yandex Maps service. Users can visualize the map tile images, copy the map and parking URLs, and adjust the zoom level to view different levels of detail.
+The Geoposition App is a Flutter-based web application that allows users to input latitude and longitude coordinates along with a zoom level to calculate and display map tile images from the Yandex Maps service. Users can visualize the map tile images, copy the map and parking URLs, and adjust the zoom level to view different levels of detail.
 
 ## Getting Started
 
