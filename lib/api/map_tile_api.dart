@@ -2,6 +2,7 @@ import "dart:math";
 import "package:geo_yandex_plate/models/map_tile_data.dart";
 import 'package:intl/intl.dart';
 
+
 class FormattedDate {
   static String getYesterdayDate() {
     DateTime yesterday = DateTime.now().subtract(Duration(days: 1));
@@ -11,35 +12,85 @@ class FormattedDate {
 }
 
 class MapTileApi extends FormattedDate {
-  //TODO date handling, need research
-  static String _getTileUrl(int xTile, int yTile, int zoom) {
+  static String _getParkingTileUrl(int xTile, int yTile, int zoom) {
     String formattedDate = FormattedDate.getYesterdayDate();
-    return "https://core-carparks-renderer-lots.maps.yandex.net/maps-rdr-carparks/tiles?l=carparks&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&v=$formattedDate-030100&experimental_data_poi=subscript_zoom_v2_nbsp";
+    return "https://core-carparks-renderer-lots.maps.yandex.net/maps-rdr-carparks/tiles?l=carparks&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&v=$formattedDate-115901&experimental_data_poi=subscript_zoom_v2_nbsp";
   }
 
-  static String _getMapUrl(int xTile, int yTile, int zoom) {
+  static String _getMapTileUrl(int xTile, int yTile, int zoom) {
     String formattedDate = FormattedDate.getYesterdayDate();
     return "https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=$formattedDate-b230722061630&x=$xTile&y=$yTile&z=$zoom&scale=2&lang=ru_RU&experimental_data_poi=subscript_zoom_v2_nbsp&ads=enabled";
   }
 
-  static Future<MapTileData> getTileData(
-      double latitude, double longitude, int zoom) async {
+  static Future<List<List<MapTileData>>> getTileMatrix(
+      double latitude, double longitude, int zoom, int n) async {
     try {
+      List<List<MapTileData>> tileMatrix = [];
       List<double> pixelCoords =
-          _calculateTileCoordinates(latitude, longitude, zoom);
+      _calculateTileCoordinates(latitude, longitude, zoom);
+
       if (pixelCoords.isEmpty) {
-        return MapTileData.empty();
+        return [[MapTileData.empty()]];
       } else {
-        int xTile = (pixelCoords[0] ~/ 256).toInt();
-        int yTile = (pixelCoords[1] ~/ 256).toInt();
-        String tileUrl = _getTileUrl(xTile, yTile, zoom);
-        String mapUrl = _getMapUrl(xTile, yTile, zoom);
-        return MapTileData(
-            xTile: xTile, yTile: yTile, tileUrl: tileUrl, mapUrl: mapUrl);
+        int centralXTile = (pixelCoords[0] ~/ 256).toInt();
+        int centralYTile = (pixelCoords[1] ~/ 256).toInt();
+
+        for (int i = -n ~/ 2; i <= n ~/ 2; i++) {
+          List<MapTileData> row = [];
+
+          for (int j = -n ~/ 2; j <= n ~/ 2; j++) {
+            int xTile = centralXTile + i;
+            int yTile = centralYTile + j;
+
+            String tileUrl = _getParkingTileUrl(xTile, yTile, zoom);
+            String mapUrl = _getMapTileUrl(xTile, yTile, zoom);
+
+            row.add(
+              MapTileData(
+                xTile: xTile,
+                yTile: yTile,
+                parkingUrl: tileUrl,
+                mapUrl: mapUrl,
+              ),
+            );
+          }
+
+          tileMatrix.add(row);
+        }
+
+        return tileMatrix;
       }
     } catch (e) {
       print("Error occurred during coordinate calculation: $e");
-      return MapTileData.empty();
+      return [[MapTileData.empty()]];
+    }
+  }
+
+
+  static Future<List<MapTileData>> getTileData(
+      double latitude, double longitude, int zoom) async {
+    try {
+      List<double> pixelCoords =
+      _calculateTileCoordinates(latitude, longitude, zoom);
+      if (pixelCoords.isEmpty) {
+        return [MapTileData.empty()];
+      } else {
+        int xTile = (pixelCoords[0] ~/ 256).toInt();
+        int yTile = (pixelCoords[1] ~/ 256).toInt();
+        String tileUrl = _getParkingTileUrl(xTile, yTile, zoom);
+        String mapUrl = _getMapTileUrl(xTile, yTile, zoom);
+        return [
+          MapTileData(
+            xTile: xTile,
+            yTile: yTile,
+            parkingUrl: tileUrl,
+            mapUrl: mapUrl,
+          ),
+        ];
+      }
+    } catch (e) {
+      print("Error occurred during coordinate calculation: $e");
+      return [MapTileData.empty()];
     }
   }
 
@@ -70,3 +121,4 @@ class MapTileApi extends FormattedDate {
     }
   }
 }
+

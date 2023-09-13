@@ -1,17 +1,17 @@
 class MapTileData {
   final int xTile;
   final int yTile;
-  final String tileUrl;
+  final String parkingUrl;
   final String mapUrl;
 
   MapTileData({
     required this.xTile,
     required this.yTile,
-    required this.tileUrl,
+    required this.parkingUrl,
     required this.mapUrl,
   });
 
   factory MapTileData.empty() {
-    return MapTileData(xTile: 0, yTile: 0, tileUrl: '', mapUrl: '');
+    return MapTileData(xTile: 0, yTile: 0, parkingUrl: '', mapUrl: '');
   }
 }
