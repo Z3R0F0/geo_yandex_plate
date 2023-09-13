@@ -24,6 +24,10 @@ class _GeopositionPageState extends State<GeopositionPage> {
   int _zoomLevel = 14;
   int _lastZoomLevel = 0;
 
+  List<List<String>> mapUrlsMatrix = [];
+
+  List<List<String>> parkingUrlsMatrix = [];
+
   // Обновление данных об изображении тайла карты
   void _updateMapTileData() async {
     if (_zoomLevel != _lastZoomLevel) {
@@ -32,11 +36,15 @@ class _GeopositionPageState extends State<GeopositionPage> {
       double longitude = double.tryParse(coords[1].trim()) ?? 0.0;
 
       // Получение данных о тайле карты через API
-      MapTileData mapTileData =
-          await MapTileApi.getTileData(latitude, longitude, _zoomLevel);
+      List<MapTileData> mapTileDataList =
+      await MapTileApi.getTileData(latitude, longitude, _zoomLevel);
+      MapTileData mapTileData = mapTileDataList[0];
+
+      final mapTileMatrix = await MapTileApi.getTileMatrix(
+          latitude, longitude, _zoomLevel, 4);
 
       // Обработка данных о тайле карты
-      if (mapTileData.tileUrl.isEmpty) {
+      if (mapTileData.parkingUrl.isEmpty) {
         setState(() {
           _tileIsVisible = false;
           _tileUrl = '';
@@ -44,11 +52,29 @@ class _GeopositionPageState extends State<GeopositionPage> {
         });
       } else {
         setState(() {
+          // Проверка размерности матрицы
+          if (mapTileMatrix.isNotEmpty && mapTileMatrix[0].isNotEmpty) {
+            int numRows = mapTileMatrix.length;
+            int numCols = mapTileMatrix[0].length;
+
+            // Обновление матрицы mapUrlsMatrix
+            mapUrlsMatrix = List.generate(numRows, (i) {
+              return List.generate(numCols, (j) {
+                return mapTileMatrix[j][i].mapUrl;
+              });
+            });
+
+            // Обновление матрицы parkingUrlsMatrix
+            parkingUrlsMatrix = List.generate(numRows, (i) {
+              return List.generate(numCols, (j) {
+                return mapTileMatrix[j][i].parkingUrl;
+              });
+            });
+          }
+
           _tileIsVisible = true;
-          _xTile = mapTileData.xTile;
-          _yTile = mapTileData.yTile;
-          _tileUrl = mapTileData.tileUrl;
-          _mapUrl = mapTileData.mapUrl;
+          _xTile = mapTileMatrix[0][0].xTile;
+          _yTile = mapTileMatrix[0][0].yTile;
         });
       }
     }
@@ -117,7 +143,7 @@ class _GeopositionPageState extends State<GeopositionPage> {
                   },
                   onChanged: (value) {},
                   activeColor:
-                      Colors.white, // Устанавливаем белый цвет для ползунка
+                  Colors.white, // Устанавливаем белый цвет для ползунка
                 ),
                 CustomButton(
                   onPressed: () async {
@@ -142,19 +168,57 @@ class _GeopositionPageState extends State<GeopositionPage> {
                               });
                             },
                             text:
-                                'Toggle Parking', // Кнопка для переключения видимости тайла
+                            'Toggle Parking', // Кнопка для переключения видимости тайла
                           ),
-                          Stack(
-                            children: [
-                              _buildImageContainer(_mapUrl),
-                              // Отображение карты
-                              Visibility(
-                                visible: _tileIsVisible,
-                                child: _buildImageContainer(
-                                    _tileUrl), // Отображение тайла
-                              )
-                            ],
+
+                          Container(
+                            height: 1000,
+                            width: 1000,
+                            child: Stack(
+                              children: [
+                                // Other widgets in the Stack
+                                Positioned.fill(
+                                  child: Container(
+                                    width: 100, // Set the width to fill available space
+                                    height: 100, // Set the height to fill available space
+                                    child: GridView.builder(
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: mapUrlsMatrix.length, // Number of columns in the grid
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        final rowIndex = index ~/ mapUrlsMatrix.length;
+                                        final colIndex = index % mapUrlsMatrix.length;
+                                        return buildSquareMatrix(mapUrlsMatrix)[rowIndex][colIndex];
+                                      },
+                                      itemCount: mapUrlsMatrix.length * mapUrlsMatrix.length,
+                                    ),
+                                  ),
+                                ),
+
+                                Visibility(
+                                  visible: _tileIsVisible,
+                                  child: Positioned.fill(
+                                    child: Container(
+                                      width: 100, // Set the width to fill available space
+                                      height: 100, // Set the height to fill available space
+                                      child: GridView.builder(
+                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: parkingUrlsMatrix.length, // Number of columns in the grid
+                                        ),
+                                        itemBuilder: (context, index) {
+                                          final rowIndex = index ~/ parkingUrlsMatrix.length;
+                                          final colIndex = index % parkingUrlsMatrix.length;
+                                          return buildSquareMatrix(parkingUrlsMatrix)[rowIndex][colIndex];
+                                        },
+                                        itemCount: parkingUrlsMatrix.length * parkingUrlsMatrix.length,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+
                           SizedBox(height: 10),
                           CustomButton(
                             onPressed: () {
@@ -168,7 +232,7 @@ class _GeopositionPageState extends State<GeopositionPage> {
                               }
                             },
                             text:
-                                'Copy Map URL', // Кнопка для копирования URL карты
+                            'Copy Map URL', // Кнопка для копирования URL карты
                           ),
                           CustomButton(
                             onPressed: () {
@@ -204,65 +268,70 @@ class _GeopositionPageState extends State<GeopositionPage> {
     );
   }
 
-// Загрузка изображения тайла карты по URL
   Future<Widget> _loadMapTileImage(String imageUrl) async {
     if (imageUrl.isNotEmpty) {
       try {
         final response = await http.get(Uri.parse(imageUrl));
         if (response.statusCode == 200) {
-          final image = await Image.memory(
+          final image = await Image
+              .memory(
             response.bodyBytes,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Text(
-                  'Image not found',
-                  // Выводим сообщение об ошибке загрузки изображения
-                  style: TextStyle(color: Colors.red),
+              return Center(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(color: Colors.white),
+                  child: const Text(
+                    'Картинка не найдена',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
               );
             },
-          ).image;
+          )
+              .image;
           return Image(image: image);
         } else {
-          // Обработка ошибки загрузки изображения с сервера
-          return const Center(
-            child: Text(
-              'Error loading image',
-              // Выводим сообщение об ошибке загрузки изображения
-              style: TextStyle(color: Colors.red),
+          return Center(
+            child: Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white),
+              child: const Text(
+                'Ответ не 200',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           );
         }
       } catch (e) {
-        // Обработка неожиданных исключений, включая ImageCodecException
-        print('Error loading image: $e');
-        return const Center(
-          child: Text(
-            'Error loading image',
-            // Выводим сообщение об ошибке загрузки изображения
-            style: TextStyle(color: Colors.red),
+        print('Error: $e');
+        return Center(
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: const BoxDecoration(color: Colors.white),
+            child: const Text(
+              'Ошибка подключения к Яндексу',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         );
       }
     } else {
       return const Center(
         child: Text(
-          'Map not found', // Выводим сообщение, если URL карты пустой
+          'Map not found',
           style: TextStyle(color: Colors.red),
         ),
       );
     }
   }
 
-// Виджет для отображения контейнера с изображением
   Widget _buildImageContainer(String imageUrl) {
     return SizedBox(
-      height: 300,
-      // Устанавливаем фиксированную высоту, чтобы предотвратить изменение размеров
       child: Container(
-        width: MediaQuery.of(context).size.height -
-            MediaQuery.of(context).size.height / 30,
+        width: 20,
+        height: 20,
         decoration: BoxDecoration(
           color: imageUrl.contains('map')
               ? Colors.white
@@ -295,12 +364,11 @@ class _GeopositionPageState extends State<GeopositionPage> {
                 },
               ),
             ),
-            if (imageUrl
-                .isEmpty) // Показываем черный квадрат, если URL изображения пустой
+            if (imageUrl.isEmpty)
               Container(
+                width: 20,
+                height: 20,
                 color: Colors.black,
-                width: double.infinity,
-                height: double.infinity,
                 child: const Center(
                   child: CircularProgressIndicator(),
                 ),
@@ -309,5 +377,18 @@ class _GeopositionPageState extends State<GeopositionPage> {
         ),
       ),
     );
+  }
+
+  List<List<Widget>> buildSquareMatrix(List<List<String>> urlsMatrix) {
+    final size = urlsMatrix.length;
+    final squareMatrix = List.generate(
+      size,
+          (i) =>
+          List.generate(
+            size,
+                (j) => _buildImageContainer(urlsMatrix[i][j]),
+          ),
+    );
+    return squareMatrix;
   }
 }
