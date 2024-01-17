@@ -28,6 +28,9 @@ class _GeopositionPageState extends State<GeopositionPage> {
 
   List<List<String>> parkingUrlsMatrix = [];
 
+  List<List<List<MapMarker?>>> markersMatrix = [];
+
+
   // Обновление данных об изображении тайла карты
   void _updateMapTileData() async {
     if (_zoomLevel != _lastZoomLevel) {
@@ -40,7 +43,8 @@ class _GeopositionPageState extends State<GeopositionPage> {
       await MapTileApi.getTileData(latitude, longitude, _zoomLevel);
       MapTileData mapTileData = mapTileDataList[0];
 
-      final mapTileMatrix = await MapTileApi.getTileMatrix(
+      final mapTileMatrix =
+      await MapTileApi.getTileMatrixWithMarkers(
           latitude, longitude, _zoomLevel, 4);
 
       // Обработка данных о тайле карты
@@ -70,11 +74,18 @@ class _GeopositionPageState extends State<GeopositionPage> {
                 return mapTileMatrix[j][i].parkingUrl;
               });
             });
+
+            markersMatrix = List.generate(numRows, (i) {
+              return List.generate(numCols, (j) {
+                return mapTileMatrix[j][i].markers ?? <MapMarker?>[];
+              });
+            });
           }
 
-          _tileIsVisible = true;
           _xTile = mapTileMatrix[0][0].xTile;
           _yTile = mapTileMatrix[0][0].yTile;
+          _tileUrl = mapTileMatrix[0][0].mapUrl;
+          _tileUrl = mapTileMatrix[0][0].parkingUrl;
         });
       }
     }
@@ -179,18 +190,27 @@ class _GeopositionPageState extends State<GeopositionPage> {
                                 // Other widgets in the Stack
                                 Positioned.fill(
                                   child: Container(
-                                    width: 100, // Set the width to fill available space
-                                    height: 100, // Set the height to fill available space
+                                    width: 100,
+                                    // Set the width to fill available space
+                                    height: 100,
+                                    // Set the height to fill available space
                                     child: GridView.builder(
-                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: mapUrlsMatrix.length, // Number of columns in the grid
+                                      gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: mapUrlsMatrix
+                                            .length, // Number of columns in the grid
                                       ),
                                       itemBuilder: (context, index) {
-                                        final rowIndex = index ~/ mapUrlsMatrix.length;
-                                        final colIndex = index % mapUrlsMatrix.length;
-                                        return buildSquareMatrix(mapUrlsMatrix)[rowIndex][colIndex];
+                                        final rowIndex =
+                                            index ~/ mapUrlsMatrix.length;
+                                        final colIndex =
+                                            index % mapUrlsMatrix.length;
+                                        return buildSquareMatrix(
+                                            mapUrlsMatrix,
+                                            markersMatrix)[rowIndex][colIndex];
                                       },
-                                      itemCount: mapUrlsMatrix.length * mapUrlsMatrix.length,
+                                      itemCount: mapUrlsMatrix.length *
+                                          mapUrlsMatrix.length,
                                     ),
                                   ),
                                 ),
@@ -199,18 +219,27 @@ class _GeopositionPageState extends State<GeopositionPage> {
                                   visible: _tileIsVisible,
                                   child: Positioned.fill(
                                     child: Container(
-                                      width: 100, // Set the width to fill available space
-                                      height: 100, // Set the height to fill available space
+                                      width: 100,
+                                      // Set the width to fill available space
+                                      height: 100,
+                                      // Set the height to fill available space
                                       child: GridView.builder(
-                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: parkingUrlsMatrix.length, // Number of columns in the grid
+                                        gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: parkingUrlsMatrix
+                                              .length, // Number of columns in the grid
                                         ),
                                         itemBuilder: (context, index) {
-                                          final rowIndex = index ~/ parkingUrlsMatrix.length;
-                                          final colIndex = index % parkingUrlsMatrix.length;
-                                          return buildSquareMatrix(parkingUrlsMatrix)[rowIndex][colIndex];
+                                          final rowIndex =
+                                              index ~/ parkingUrlsMatrix.length;
+                                          final colIndex =
+                                              index % parkingUrlsMatrix.length;
+                                          return buildSquareMatrix(
+                                              parkingUrlsMatrix, [])[rowIndex]
+                                          [colIndex];
                                         },
-                                        itemCount: parkingUrlsMatrix.length * parkingUrlsMatrix.length,
+                                        itemCount: parkingUrlsMatrix.length *
+                                            parkingUrlsMatrix.length,
                                       ),
                                     ),
                                   ),
@@ -291,7 +320,9 @@ class _GeopositionPageState extends State<GeopositionPage> {
             },
           )
               .image;
-          return Image(image: image);
+          return Container(
+            decoration: BoxDecoration(border: Border.all(color: Colors.red)),
+              child: Image(image: image));
         } else {
           return Center(
             child: Container(
@@ -311,7 +342,7 @@ class _GeopositionPageState extends State<GeopositionPage> {
             padding: EdgeInsets.all(16),
             decoration: const BoxDecoration(color: Colors.white),
             child: const Text(
-              'Ошибка подключения к Яндексу',
+              'Ошибка :О',
               style: TextStyle(color: Colors.red),
             ),
           ),
@@ -327,7 +358,7 @@ class _GeopositionPageState extends State<GeopositionPage> {
     }
   }
 
-  Widget _buildImageContainer(String imageUrl) {
+  Widget _buildImageContainer(String imageUrl, List<MapMarker?> markers) {
     return SizedBox(
       child: Container(
         width: 20,
@@ -350,7 +381,23 @@ class _GeopositionPageState extends State<GeopositionPage> {
                     return AnimatedOpacity(
                       opacity: snapshot.hasData ? 1.0 : 0.0,
                       duration: Duration(milliseconds: 300),
-                      child: snapshot.data ?? Container(),
+                      child: Stack(
+                        children: [
+                          snapshot.data ?? Container(),
+                          // Add markers to the map
+                          ...markers.map((marker) {
+                            if (marker != null) {
+                              return Positioned(
+                                left: marker.latitude,
+                                top: marker.longitude,
+                                child: marker.markerWidget,
+                              );
+                            } else {
+                              return (SizedBox());
+                            }
+                          }),
+                        ],
+                      ),
                     );
                   } else {
                     return const SizedBox(
@@ -379,14 +426,24 @@ class _GeopositionPageState extends State<GeopositionPage> {
     );
   }
 
-  List<List<Widget>> buildSquareMatrix(List<List<String>> urlsMatrix) {
+
+  List<List<Widget>> buildSquareMatrix(List<List<String>> urlsMatrix,
+      List<List<List<MapMarker?>>>? markersMatrix) {
     final size = urlsMatrix.length;
     final squareMatrix = List.generate(
       size,
           (i) =>
           List.generate(
             size,
-                (j) => _buildImageContainer(urlsMatrix[i][j]),
+                (j) {
+              if (markersMatrix != null && i < markersMatrix.length &&
+                  j < markersMatrix[i].length) {
+                return _buildImageContainer(
+                    urlsMatrix[i][j], markersMatrix[i][j]);
+              } else {
+                return _buildImageContainer(urlsMatrix[i][j], []);
+              }
+            },
           ),
     );
     return squareMatrix;
